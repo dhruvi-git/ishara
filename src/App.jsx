@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { socket, broadcastChannel } from './utils/socket';
+import { realtime } from './utils/realtime';
 import { BUS, DEFAULT_ZONE } from './constants/busData';
 import PassengerView from './components/PassengerView';
 import ConductorView from './components/ConductorView';
@@ -9,7 +9,7 @@ import StickerGenerator from './components/StickerGenerator';
 import { QrCode, Printer, RotateCcw, Smartphone, Laptop, Radio, ExternalLink, Shield } from 'lucide-react';
 
 export default function App() {
-  const [urlParams, setUrlParams] = useState({ view: null, zone: DEFAULT_ZONE });
+  const [urlParams, setUrlParams] = useState({ view: null, zone: DEFAULT_ZONE, room: 'bus4471' });
   const [networkInfo, setNetworkInfo] = useState(null);
   const [isPairModalOpen, setIsPairModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('p'); // 'p' | 'c' | 'd'
@@ -20,27 +20,9 @@ export default function App() {
   const [isConductorBuzzing, setIsConductorBuzzing] = useState(false);
   const [hasUnreadAlert, setHasUnreadAlert] = useState(false);
 
-  // Parse URL search params
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const view = params.get('view');
-    const zone = params.get('zone') || DEFAULT_ZONE;
-    setUrlParams({ view, zone });
-
-    // Fetch network info for pairing QR
-    fetch('/api/network-info')
-      .then(r => r.json())
-      .then(data => setNetworkInfo(data))
-      .catch(err => {
-        // Fallback for static Vercel deployment
-        setNetworkInfo({
-          localIp: window.location.hostname,
-          port: window.location.port || '443',
-          fullUrl: window.location.origin,
-          bus: BUS
-        });
-      });
-  }, []);
+  // Connection state
+  const [peerCount, setPeerCount] = useState(0);
+  const [connStatus, setConnStatus] = useState('ready');
 
   // Handle incoming alert effects
   const handleIncomingAlert = (alert) => {
@@ -78,62 +60,67 @@ export default function App() {
     setHasUnreadAlert(true);
   };
 
-  // Socket & BroadcastChannel listeners
+  // Initialize URL & Realtime Manager
   useEffect(() => {
-    socket.on('state:init', (data) => {
-      setActiveAlerts(data.activeAlerts || []);
-      setIncidentHistory(data.history || []);
-      if (data.network) {
-        setNetworkInfo(prev => ({ ...prev, ...data.network }));
-      }
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get('view');
+    const zone = params.get('zone') || DEFAULT_ZONE;
+    const room = params.get('room') || 'bus4471';
+    setUrlParams({ view, zone, room });
+
+    // Host is the main dashboard; standalone views act as clients
+    const isHost = !view;
+
+    // Initialize unified realtime manager (WebRTC P2P + Socket.io + BroadcastChannel)
+    realtime.init({ roomId: room, isHost });
+
+    const unsubStatus = realtime.onStatusChange(({ status, peerCount }) => {
+      setPeerCount(peerCount || 0);
+      setConnStatus(status);
     });
 
-    socket.on('alert:new', (alert) => {
+    const unsubAlertNew = realtime.on('alert:new', (alert) => {
       handleIncomingAlert(alert);
     });
 
-    socket.on('alert:updated', (updated) => {
-      setActiveAlerts(prev => prev.map(a => a.id === updated.id ? updated : a));
+    const unsubAlertUpd = realtime.on('alert:updated', (updated) => {
+      setActiveAlerts(prev => prev.map(a => a.id === updated.id ? { ...a, ...updated } : a));
     });
 
-    socket.on('alert:closed', (closed) => {
+    const unsubAlertClose = realtime.on('alert:closed', (closed) => {
       setActiveAlerts(prev => prev.filter(a => a.id !== closed.id));
       setIncidentHistory(prev => [closed, ...prev]);
     });
 
-    socket.on('demo:reset_done', () => {
+    const unsubReset = realtime.on('demo:reset_done', () => {
       setActiveAlerts([]);
       setIncidentHistory([]);
     });
 
-    // Cross-tab synchronization via BroadcastChannel (works on Vercel without a backend)
-    if (broadcastChannel) {
-      broadcastChannel.onmessage = (event) => {
-        const { type, data } = event.data || {};
-        if (type === 'alert:new') {
-          handleIncomingAlert(data);
-        } else if (type === 'alert:updated') {
-          setActiveAlerts(prev => prev.map(a => a.id === data.id ? { ...a, ...data } : a));
-        } else if (type === 'alert:closed') {
-          setActiveAlerts(prev => prev.filter(a => a.id !== data.id));
-          setIncidentHistory(prev => [data, ...prev]);
-        } else if (type === 'demo:reset') {
-          setActiveAlerts([]);
-          setIncidentHistory([]);
-        }
-      };
-    }
+    // Fetch network info for pairing QR (if local backend is running)
+    fetch('/api/network-info')
+      .then(r => r.json())
+      .then(data => setNetworkInfo(data))
+      .catch(() => {
+        // Fallback for static Vercel deployment
+        setNetworkInfo({
+          localIp: window.location.hostname,
+          port: window.location.port || '443',
+          fullUrl: window.location.origin,
+          bus: BUS
+        });
+      });
 
     return () => {
-      socket.off('state:init');
-      socket.off('alert:new');
-      socket.off('alert:updated');
-      socket.off('alert:closed');
-      socket.off('demo:reset_done');
+      unsubStatus();
+      unsubAlertNew();
+      unsubAlertUpd();
+      unsubAlertClose();
+      unsubReset();
     };
   }, []);
 
-  // Active alert for the current context
+  // Active alert for current context
   const currentActiveAlert = activeAlerts[activeAlerts.length - 1] || null;
 
   // Actions
@@ -154,56 +141,26 @@ export default function App() {
       updatedAt: Date.now()
     };
 
-    if (socket && socket.connected) {
-      socket.emit('alert:create', alert);
-    } else {
-      handleIncomingAlert(alert);
-      if (broadcastChannel) {
-        broadcastChannel.postMessage({ type: 'alert:new', data: alert });
-      }
-    }
+    realtime.send('alert:new', alert);
   };
 
   const handleUpdateAlert = (updatedData) => {
-    if (socket && socket.connected) {
-      socket.emit('alert:update', updatedData);
-    } else {
-      setActiveAlerts(prev => prev.map(a => a.id === updatedData.id ? { ...a, ...updatedData, updatedAt: Date.now() } : a));
-      if (broadcastChannel) {
-        broadcastChannel.postMessage({ type: 'alert:updated', data: updatedData });
-      }
-    }
+    realtime.send('alert:updated', updatedData);
   };
 
   const handleCloseAlert = (alert) => {
-    if (socket && socket.connected) {
-      socket.emit('alert:close', alert);
-    } else {
-      const closed = {
-        ...alert,
-        status: 'closed',
-        closedAt: Date.now(),
-        outcome: alert.status === 'safe' ? 'safe' : 'closed',
-        updatedAt: Date.now()
-      };
-      setActiveAlerts(prev => prev.filter(a => a.id !== alert.id));
-      setIncidentHistory(prev => [closed, ...prev]);
-      if (broadcastChannel) {
-        broadcastChannel.postMessage({ type: 'alert:closed', data: closed });
-      }
-    }
+    const closed = {
+      ...alert,
+      status: 'closed',
+      closedAt: Date.now(),
+      outcome: alert.status === 'safe' ? 'safe' : 'closed',
+      updatedAt: Date.now()
+    };
+    realtime.send('alert:closed', closed);
   };
 
   const handleResetDemo = () => {
-    if (socket && socket.connected) {
-      socket.emit('demo:reset');
-    } else {
-      setActiveAlerts([]);
-      setIncidentHistory([]);
-      if (broadcastChannel) {
-        broadcastChannel.postMessage({ type: 'demo:reset' });
-      }
-    }
+    realtime.send('demo:reset_done', null);
   };
 
   // If URL explicitly requests Standalone Views (e.g. on mobile phones)
@@ -212,7 +169,7 @@ export default function App() {
       <div className="mobile-standalone">
         <div className="phone-sbar">
           <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-          <span>4G · Seat {urlParams.zone}</span>
+          <span>Seat {urlParams.zone} · Room {urlParams.room.toUpperCase()}</span>
         </div>
         <div className="phone-scroll">
           <PassengerView
@@ -232,7 +189,7 @@ export default function App() {
       <div className="mobile-standalone">
         <div className="phone-sbar">
           <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-          <span>BEST Conductor On Duty</span>
+          <span>BEST Conductor · Room {urlParams.room.toUpperCase()}</span>
         </div>
         <div className="phone-scroll">
           <ConductorView
@@ -262,7 +219,8 @@ export default function App() {
     return (
       <StickerGenerator
         networkInfo={networkInfo}
-        onBack={() => setUrlParams({ view: null, zone: DEFAULT_ZONE })}
+        roomId={urlParams.room}
+        onBack={() => setUrlParams(prev => ({ ...prev, view: null }))}
       />
     );
   }
@@ -294,10 +252,14 @@ export default function App() {
               width: 8,
               height: 8,
               borderRadius: '50%',
-              background: 'var(--ok)',
-              boxShadow: '0 0 0 4px var(--ok-soft)'
+              background: peerCount > 0 ? 'var(--ok)' : 'var(--saffron)',
+              boxShadow: peerCount > 0 ? '0 0 0 4px var(--ok-soft)' : '0 0 0 4px var(--saffron-soft)'
             }} />
-            <span>Live Multi-Device Relay</span>
+            <span>
+              {peerCount > 0
+                ? `Live: ${peerCount} phone(s) linked`
+                : `Room: ${urlParams.room.toUpperCase()} (P2P Ready)`}
+            </span>
           </div>
 
           {/* Pairing QR Button */}
@@ -313,7 +275,7 @@ export default function App() {
           {/* Seat Stickers Button */}
           <button
             type="button"
-            onClick={() => setUrlParams({ view: 'stickers', zone: DEFAULT_ZONE })}
+            onClick={() => setUrlParams(prev => ({ ...prev, view: 'stickers' }))}
             className="btn-pill"
           >
             <Printer size={15} />
@@ -454,6 +416,7 @@ export default function App() {
         onClose={() => setIsPairModalOpen(false)}
         networkInfo={networkInfo}
         currentZone={urlParams.zone}
+        roomId={urlParams.room}
       />
     </div>
   );

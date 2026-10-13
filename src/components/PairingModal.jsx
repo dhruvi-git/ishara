@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { X, Smartphone, Laptop, Copy, Check, ExternalLink, QrCode } from 'lucide-react';
 
-export default function PairingModal({ isOpen, onClose, networkInfo, currentZone = "R4C" }) {
+export default function PairingModal({ isOpen, onClose, networkInfo, currentZone = "R4C", roomId = "bus4471" }) {
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
   const baseOrigin = networkInfo?.fullUrl || window.location.origin;
-  const passengerUrl = `${baseOrigin}/?view=passenger&zone=${currentZone}`;
-  const conductorUrl = `${baseOrigin}/?view=conductor`;
-  const depotUrl = `${baseOrigin}/?view=depot`;
+  const roomParam = roomId ? `&room=${roomId}` : '';
+  const passengerUrl = `${baseOrigin}/?view=passenger&zone=${currentZone}${roomParam}`;
+  const conductorUrl = `${baseOrigin}/?view=conductor${roomParam}`;
+  const depotUrl = `${baseOrigin}/?view=depot${roomParam}`;
 
   const handleCopy = (url) => {
     navigator.clipboard.writeText(url);
@@ -74,7 +75,7 @@ export default function PairingModal({ isOpen, onClose, networkInfo, currentZone
           <div>
             <h3 style={{ fontSize: 18, color: 'var(--ink)' }}>Live Multi-Device Pairing</h3>
             <p style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>
-              Connect your physical smartphone over local Wi-Fi
+              WebRTC P2P &amp; Wi-Fi Sync · Room: <strong style={{ color: 'var(--navy)', fontFamily: 'var(--f-mono)' }}>{roomId.toUpperCase()}</strong>
             </p>
           </div>
         </div>

@@ -3,7 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { BUS, ZONE_ROWS, zoneName } from '../constants/busData';
 import { Printer, ArrowLeft, Check, Sparkles } from 'lucide-react';
 
-export default function StickerGenerator({ networkInfo, onBack }) {
+export default function StickerGenerator({ networkInfo, onBack, roomId = "bus4471" }) {
   const [selectedZones, setSelectedZones] = useState(["R4C", "R4R", "F1L", "F2C"]);
 
   const baseOrigin = networkInfo?.fullUrl || window.location.origin;
@@ -129,7 +129,7 @@ export default function StickerGenerator({ networkInfo, onBack }) {
         gap: 20
       }}>
         {selectedZones.map((z) => {
-          const seatUrl = `${baseOrigin}/?view=passenger&zone=${z}`;
+          const seatUrl = `${baseOrigin}/?view=passenger&zone=${z}${roomId ? `&room=${roomId}` : ''}`;
 
           return (
             <div
