@@ -1,0 +1,603 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Ishaara Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600&family=Poppins:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one strip of three working screens (passenger phone → conductor phone → depot console), tabs below 1100px */
+:root{
+  --bg:#eef0f6; --surface:#ffffff; --surface-2:#f5f6fb; --line:#d9dcea;
+  --ink:#16204a; --ink-2:#4b5478; --ink-3:#7b83a3;
+  --navy:#1b2a5c; --navy-ink:#ffffff;
+  --saffron:#f28c28; --saffron-soft:#fde9d4; --saffron-ink:#8a4300;
+  --ok:#1f8a5b; --ok-soft:#daf2e6; --alert:#d23b3b; --alert-soft:#fbe0e0;
+  --device:#0f1733; --screen:#ffffff;
+  --f-display:"Poppins","Segoe UI",system-ui,sans-serif;
+  --f-body:"Hind","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1122; --surface:#151c36; --surface-2:#1b2342; --line:#2b3561;
+  --ink:#eef0fb; --ink-2:#b5bbd8; --ink-3:#858cb0;
+  --navy:#2a3c7e; --navy-ink:#ffffff;
+  --saffron:#f59a3e; --saffron-soft:#3a2a17; --saffron-ink:#ffc58c;
+  --ok:#4cc58b; --ok-soft:#173528; --alert:#ff6b6b; --alert-soft:#3d1b22;
+  --device:#000000; --screen:#121935; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1122; --surface:#151c36; --surface-2:#1b2342; --line:#2b3561;
+  --ink:#eef0fb; --ink-2:#b5bbd8; --ink-3:#858cb0;
+  --navy:#2a3c7e; --navy-ink:#ffffff;
+  --saffron:#f59a3e; --saffron-soft:#3a2a17; --saffron-ink:#ffc58c;
+  --ok:#4cc58b; --ok-soft:#173528; --alert:#ff6b6b; --alert-soft:#3d1b22;
+  --device:#000000; --screen:#121935; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45}
+.wrap{max-width:1320px;margin:0 auto;padding-inline:20px;padding-block:24px 48px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--saffron);outline-offset:2px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;gap:16px 32px;align-items:flex-end;justify-content:space-between}
+.brand{display:flex;gap:14px;align-items:flex-start}
+.mark{width:52px;height:52px;border-radius:14px;background:var(--saffron);color:#fff;display:grid;place-items:center;font-family:var(--f-body);font-weight:600;font-size:22px;flex:none}
+.brand h1{font-size:30px;letter-spacing:-.01em}
+.brand h1 span{font-family:var(--f-body);font-weight:500;color:var(--saffron)}
+.brand p{margin:2px 0 0;color:var(--ink-2);max-width:60ch}
+.live{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 14px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ink-3);flex:none}
+.live.on .dot{background:var(--ok);box-shadow:0 0 0 4px var(--ok-soft)}
+
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:22px 0 18px;padding:0;list-style:none}
+.steps li{display:flex;gap:10px;align-items:flex-start;color:var(--ink-2);font-size:15px;min-width:0}
+.steps b{color:var(--ink);font-weight:600}
+.steps .n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--navy);color:var(--navy-ink);display:grid;place-items:center;font-family:var(--f-display);font-size:13px;font-weight:600;margin-top:1px}
+
+.tabs{display:none;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:16px}
+.tabs button{flex:1;border:0;background:transparent;border-radius:9px;padding:9px 6px;font-weight:600;font-size:15px;color:var(--ink-2);position:relative}
+.tabs button[aria-selected="true"]{background:var(--navy);color:var(--navy-ink)}
+.tabs .badge{position:absolute;top:5px;right:8px;width:9px;height:9px;border-radius:50%;background:var(--alert)}
+
+.stage{display:grid;grid-template-columns:340px 340px minmax(0,1fr);gap:24px;align-items:start}
+.col{min-width:0;display:flex;flex-direction:column;gap:10px}
+.col-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.col-h h2{font-size:17px}
+.col-h span{font-size:13px;color:var(--ink-3)}
+
+/* devices */
+.phone{background:var(--device);border-radius:40px;padding:12px;box-shadow:0 18px 40px -18px rgba(15,23,51,.55);width:100%;max-width:340px}
+.screen{background:var(--screen);border-radius:30px;height:640px;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.sbar{display:flex;justify-content:space-between;padding:10px 22px 6px;font-size:12px;font-weight:600;color:var(--ink-2);font-family:var(--f-mono)}
+.scroll{flex:1;overflow-y:auto;padding:4px 16px 18px;display:flex;flex-direction:column;gap:12px}
+
+.seg{display:flex;gap:4px;background:var(--surface-2);border-radius:10px;padding:3px;margin:0 16px 6px}
+.seg button{flex:1;border:0;background:transparent;padding:7px 4px;border-radius:8px;font-size:13px;font-weight:600;color:var(--ink-2);line-height:1.2}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+
+/* sticker */
+.sticker{border-radius:16px;overflow:hidden;display:grid;grid-template-columns:96px 1fr;border:1px solid var(--line);background:var(--surface)}
+.sticker .l{background:var(--saffron);color:#fff;padding:12px 10px;display:flex;flex-direction:column;justify-content:center}
+.sticker .hi{font-size:24px;font-weight:600;line-height:1}
+.sticker .en{font-family:var(--f-display);font-size:11px;letter-spacing:.2em;margin-top:4px}
+.sticker .r{padding:10px 12px;font-size:13px;color:var(--ink-2)}
+.sticker .zone{font-family:var(--f-mono);font-weight:600;background:var(--navy);color:var(--navy-ink);border-radius:6px;padding:1px 7px;font-size:13px}
+.hint{font-size:13px;color:var(--ink-3);text-align:center}
+
+.big{border:0;border-radius:16px;padding:16px;font-family:var(--f-display);font-weight:600;font-size:16px;width:100%}
+.btn-primary{background:var(--navy);color:var(--navy-ink)}
+.btn-saffron{background:var(--saffron);color:#fff}
+.btn-ghost{background:var(--surface-2);color:var(--ink);border:1px solid var(--line)}
+.btn-ok{background:var(--ok);color:#fff}
+.small{border-radius:10px;padding:9px 12px;font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--surface-2);color:var(--ink)}
+
+.card{background:var(--surface-2);border-radius:14px;padding:12px 14px}
+.k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.busline{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.busline b{font-family:var(--f-mono)}
+
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 11px;font-size:14px;color:var(--ink-2)}
+.chip[aria-pressed="true"]{border-color:var(--navy);background:var(--navy);color:var(--navy-ink)}
+
+.hold{position:relative;overflow:hidden;border:0;border-radius:20px;background:var(--saffron);color:#fff;padding:22px 16px;font-family:var(--f-display);font-weight:600;font-size:18px;width:100%;user-select:none;-webkit-user-select:none;touch-action:none}
+.hold .fill{position:absolute;inset:0;background:rgba(0,0,0,.18);transform-origin:left;transform:scaleX(0)}
+.hold span{position:relative}
+.hold small{display:block;font-family:var(--f-body);font-weight:500;font-size:13px;opacity:.9}
+
+/* glance-safe screen */
+.timetable{display:flex;flex-direction:column;gap:0}
+.stop{display:grid;grid-template-columns:18px 1fr auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px}
+.stop i{width:10px;height:10px;border-radius:50%;border:2px solid var(--ink-3);justify-self:center}
+.stop.now i{background:var(--navy);border-color:var(--navy)}
+.stop time{font-family:var(--f-mono);font-size:13px;color:var(--ink-3)}
+.quiet{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ok);background:var(--ok-soft);border-radius:10px;padding:8px 10px}
+.linkbtn{border:0;background:none;color:var(--ink-3);text-decoration:underline;font-size:13px;padding:4px}
+
+/* basic phone */
+.fp{background:#c9d3b8;color:#1c2410;border-radius:10px;padding:10px;font-family:var(--f-mono);font-size:14px;min-height:200px;display:flex;flex-direction:column;gap:8px;border:6px solid #2d3448}
+.fp .row{display:flex;justify-content:space-between;font-size:12px;border-bottom:1px solid #8c9878;padding-bottom:4px}
+.fp input{font:inherit;background:#dfe7cf;border:1px solid #8c9878;border-radius:4px;padding:6px;width:100%;color:#1c2410}
+.fp .msg{background:#dfe7cf;border-radius:4px;padding:6px;font-size:13px;line-height:1.35}
+.fp .msg.out{align-self:flex-end;background:#b4c39c}
+
+/* conductor */
+.cond-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pill{font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--ok-soft);color:var(--ok)}
+.pill.hot{background:var(--alert-soft);color:var(--alert)}
+.busmap{border:2px solid var(--line);border-radius:22px 22px 12px 12px;padding:10px 10px 8px;display:flex;flex-direction:column;gap:5px;background:var(--surface)}
+.busmap .lab{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-3);font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+.zgrid{display:grid;grid-template-columns:1fr .8fr 1fr;gap:4px}
+.z{border:1px solid var(--line);border-radius:6px;background:var(--surface-2);font-family:var(--f-mono);font-size:11px;color:var(--ink-3);padding:5px 0;text-align:center}
+.z.c{background:transparent;border-style:dashed}
+.z.sel{border-color:var(--navy);color:var(--ink);box-shadow:inset 0 0 0 1px var(--navy)}
+.z.hot{background:var(--alert);border-color:var(--alert);color:#fff;font-weight:600;animation:pulse 1.2s infinite}
+.door{height:4px;border-radius:2px;background:var(--saffron);opacity:.6;margin:2px 30%}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(210,59,59,.55)}50%{box-shadow:0 0 0 6px rgba(210,59,59,0)}}
+.buzz{animation:buzz .35s linear 3}
+@keyframes buzz{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+
+.alertcard{border:2px solid var(--alert);background:var(--alert-soft);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.alertcard .zbig{font-family:var(--f-mono);font-size:26px;font-weight:600;color:var(--alert);line-height:1}
+.alertcard .meta{font-size:13px;color:var(--ink-2)}
+.alertcard.safe{border-color:var(--ok);background:var(--ok-soft)}
+.alertcard.safe .zbig{color:var(--ok)}
+.script{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.script li button{width:100%;text-align:left;display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:start;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:9px 10px}
+.script .lv{font-family:var(--f-mono);font-size:12px;font-weight:600;background:var(--surface-2);border-radius:6px;padding:2px 0;text-align:center;color:var(--ink-2)}
+.script b{display:block;font-size:14px;line-height:1.25}
+.script small{display:block;font-size:12.5px;color:var(--ink-3);line-height:1.3}
+.script button[aria-pressed="true"]{border-color:var(--ok);background:var(--ok-soft)}
+.script button[aria-pressed="true"] .lv{background:var(--ok);color:#fff}
+.script .esc button{border-style:dashed}
+.timer{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-weight:600}
+
+/* depot */
+.console{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.kpi{background:var(--surface-2);border-radius:12px;padding:12px}
+.kpi .v{font-family:var(--f-display);font-size:26px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.1}
+.kpi .l{font-size:13px;color:var(--ink-3);line-height:1.25;margin-top:4px}
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:8px}
+.sec-h h3{font-size:15px}
+.sec-h span{font-size:12px;color:var(--ink-3)}
+.hot-list{display:flex;flex-direction:column;gap:7px}
+.hrow{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) 30px;gap:10px;align-items:center;font-size:14px}
+.hrow .nm{min-width:0}
+.hrow .nm b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hrow .nm small{color:var(--ink-3);font-size:12.5px}
+.bar{height:10px;background:var(--surface-2);border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--saffron);border-radius:5px}
+.hrow .c{font-family:var(--f-mono);font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.hours{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:2px;align-items:end;height:90px;border-bottom:1px solid var(--line)}
+.hours i{display:block;background:var(--navy);border-radius:2px 2px 0 0;min-height:2px}
+.hours i.pk{background:var(--saffron)}
+.hlab{display:grid;grid-template-columns:repeat(4,1fr);font-size:11px;color:var(--ink-3);font-family:var(--f-mono);margin-top:3px}
+.two{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:520px}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);text-align:left;font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:7px 8px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+td.mono{font-family:var(--f-mono);font-size:12.5px}
+tr.new td{background:var(--saffron-soft)}
+.st{font-size:12px;font-weight:600;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.st.safe{background:var(--ok-soft);color:var(--ok)}
+.st.open{background:var(--alert-soft);color:var(--alert)}
+.st.closed{background:var(--surface-2);color:var(--ink-2)}
+.note{font-size:12.5px;color:var(--ink-3)}
+.privacy{display:flex;gap:10px;align-items:flex-start;background:var(--surface-2);border-radius:12px;padding:10px 12px;font-size:13.5px;color:var(--ink-2)}
+
+@media (max-width:1100px){
+  .tabs{display:flex}
+  .stage{grid-template-columns:minmax(0,1fr)}
+  .col{display:none;align-items:center}
+  .col.show{display:flex}
+  .col-h{width:100%;max-width:340px}
+  .col.wide .col-h{max-width:none}
+  .col.wide{align-items:stretch}
+}
+@media (max-width:640px){
+  .steps{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .two{grid-template-columns:1fr}
+  .brand h1{font-size:24px}
+  .screen{height:600px}
+}
+@media (prefers-reduced-motion:reduce){.z.hot,.buzz{animation:none}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">इ</div>
+      <div>
+        <h1>Ishaara <span>इशारा</span></h1>
+        <p>A silent seat-to-conductor alert for women facing harassment on a bus. This working prototype runs the full loop: passenger, conductor and depot.</p>
+      </div>
+    </div>
+    <div class="live" id="live" title="Open this page on two phones to send signals between them">
+      <span class="dot"></span><span id="liveText">Single-screen demo</span>
+    </div>
+  </header>
+
+  <ol class="steps">
+    <li><span class="n">1</span><span><b>Passenger signals.</b> Tap the seat sticker, send an SMS, or ask the conductor for “Sakhi stop”.</span></li>
+    <li><span class="n">2</span><span><b>Only the conductor’s phone buzzes.</b> It shows her seat zone and a response script that looks like routine duty.</span></li>
+    <li><span class="n">3</span><span><b>Depot sees the pattern.</b> Every alert is logged without names, building a map of risky stretches and hours.</span></li>
+  </ol>
+
+  <div class="tabs" role="tablist" aria-label="Screens">
+    <button role="tab" id="tab-p" aria-selected="true" data-col="p">Passenger</button>
+    <button role="tab" id="tab-c" aria-selected="false" data-col="c">Conductor<span class="badge" id="tabBadge" hidden></span></button>
+    <button role="tab" id="tab-d" aria-selected="false" data-col="d">Depot</button>
+  </div>
+
+  <main class="stage">
+    <!-- PASSENGER -->
+    <section class="col show" id="col-p" aria-label="Passenger phone">
+      <div class="col-h"><h2>Passenger’s phone</h2><span>Seat R4C</span></div>
+      <div class="phone"><div class="screen">
+        <div class="sbar"><span id="clock1">18:42</span><span>4G ▮▮▮</span></div>
+        <div class="seg" role="group" aria-label="How she signals">
+          <button id="m-app" aria-pressed="true" data-mode="app">Smartphone</button>
+          <button id="m-sms" aria-pressed="false" data-mode="sms">Basic phone</button>
+          <button id="m-phrase" aria-pressed="false" data-mode="phrase">No phone</button>
+        </div>
+        <div class="scroll" id="pScreen"></div>
+      </div></div>
+    </section>
+
+    <!-- CONDUCTOR -->
+    <section class="col" id="col-c" aria-label="Conductor phone">
+      <div class="col-h"><h2>Conductor’s phone</h2><span>Silent, vibrate only</span></div>
+      <div class="phone" id="cPhone"><div class="screen">
+        <div class="sbar"><span id="clock2">18:42</span><span>On duty</span></div>
+        <div class="scroll" id="cScreen"></div>
+      </div></div>
+    </section>
+
+    <!-- DEPOT -->
+    <section class="col wide" id="col-d" aria-label="Depot console">
+      <div class="col-h"><h2>Depot safety console</h2><span>Sample week + your live alerts</span></div>
+      <div class="console" id="dScreen"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+"use strict";
+/* ---------- constants ---------- */
+const BUS = {reg:"MH01-4471", route:"A-202", from:"Andheri Stn (W)", to:"Marol Naka"};
+const MY_ZONE = "R4C";
+const TYPES = [
+  {id:1,label:"Staring / comments"},
+  {id:2,label:"Touching / pressing"},
+  {id:3,label:"Following / blocking"},
+  {id:0,label:"Prefer not to say"}
+];
+const SCRIPT = [
+  {lv:"L1", t:"Ticket check in her zone", d:"Walk to the zone and check tickets of nearby passengers. Presence alone often stops it."},
+  {lv:"L2", t:"Offer her a seat in front", d:"“Madam, a seat is free up front.” Moves her without naming anyone."},
+  {lv:"L3", t:"Check his ticket and stop", d:"Ask the man nearby for his pass and destination. He learns he is being watched."},
+  {lv:"L4", t:"Escalate, only if she agrees", d:"Driver halts at the next police point; live location goes to the control room.", esc:true}
+];
+const ZONE_ROWS = [
+  ["F1L","F1C","F1R"],["F2L","F2C","F2R"],["F3L","F3C","F3R"],["F4L","F4C","F4R"],
+  ["R1L","R1C","R1R"],["R2L","R2C","R2R"],["R3L","R3C","R3R"],["R4L","R4C","R4R"]
+];
+function zoneName(z){
+  const sec = z[0]==="F"?"Front":"Rear", side = {L:"left seats",C:"centre aisle (standing)",R:"right seats"}[z[2]];
+  return sec+" section, row "+z[1]+", "+side;
+}
+const STOPS = ["Andheri Stn (W)","Gundavali","Chakala","Marol Naka","Saki Naka"];
+
+/* ---------- state ---------- */
+const S = {
+  mode:"app", pStep:"lock", type:null, holdT:null,
+  sms:[], alerts:[], selZone:MY_ZONE, tab:"p",
+  room:null, connected:false, peersN:1
+};
+let tick = null;
+
+function uid(){return Math.random().toString(36).slice(2,10)}
+function now(){return Date.now()}
+function fmtClock(t){const d=new Date(t);return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")}
+function fmtDur(ms){ if(ms==null||ms<0) return "—"; const s=Math.round(ms/1000); return s<60? s+" s" : Math.floor(s/60)+" min "+String(s%60).padStart(2,"0")+" s"}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function $(id){return document.getElementById(id)}
+function active(){ for(let i=S.alerts.length-1;i>=0;i--){ if(S.alerts[i].status!=="closed") return S.alerts[i]; } return null; }
+function mine(){ const a=active(); return a && a.zone===MY_ZONE && a.channel!=="phrase" ? a : null; }
+
+/* ---------- alert lifecycle (absolute state, synced over room) ---------- */
+function upsert(a, fromRemote){
+  const i = S.alerts.findIndex(x=>x.id===a.id);
+  if(i<0){ S.alerts.push(a); if(!fromRemote || true){ onNewAlert(a, fromRemote); } }
+  else { if((S.alerts[i].updatedAt||0) > (a.updatedAt||0)) return; S.alerts[i]=a; }
+  if(!fromRemote) broadcast(a);
+  renderAll();
+}
+function patch(a, changes){ const b = Object.assign({}, a, changes, {updatedAt:now()}); upsert(b,false); }
+function createAlert(zone, channel, type){
+  const a = {id:uid(), bus:BUS.reg, route:BUS.route, zone, channel, type:type??0,
+    createdAt:now(), status:"new", steps:[false,false,false,false], ackAt:null, safeAt:null, closedAt:null, updatedAt:now()};
+  upsert(a,false);
+  return a;
+}
+function onNewAlert(a){
+  // vibrate the conductor's phone (where the device allows) and shake the frame
+  try{ if(navigator.vibrate) navigator.vibrate([180,90,180,90,320]); }catch(e){}
+  const ph=$("cPhone"); ph.classList.remove("buzz"); void ph.offsetWidth; ph.classList.add("buzz");
+  if(S.tab!=="c") $("tabBadge").hidden=false;
+}
+function broadcast(a){
+  if(S.room && S.connected){ S.room.emit("alert", a).catch(()=>{}); }
+}
+
+/* ---------- passenger screen ---------- */
+function stickerHTML(){
+  return `<div class="sticker" aria-label="Seat sticker">
+    <div class="l"><div class="hi">इशारा</div><div class="en">ISHAARA</div></div>
+    <div class="r">Feeling unsafe? Signal the conductor silently.<br>Zone <span class="zone">${MY_ZONE}</span> · Bus ${BUS.reg}</div>
+  </div>`;
+}
+function renderPassenger(){
+  const el=$("pScreen"); const m=S.mode; const a=mine();
+  ["app","sms","phrase"].forEach(k=>$("m-"+k).setAttribute("aria-pressed", String(k===m)));
+  if(m==="app"){
+    if(!a && S.pStep==="sent") S.pStep="lock";
+    if(a && S.pStep!=="lock"){ el.innerHTML = glanceSafe(a); bindGlance(a); return; }
+    if(S.pStep==="lock"){
+      el.innerHTML = `
+        <div class="card"><div class="k">On the seat back in front of her</div></div>
+        ${stickerHTML()}
+        <p class="hint">In real use she just touches her phone to the sticker (NFC) or scans its QR code. No app to install.</p>
+        <button class="big btn-primary" id="tapSticker">Tap phone on sticker</button>`;
+      $("tapSticker").onclick=()=>{S.pStep="form"; S.type=null; renderPassenger();};
+      return;
+    }
+    el.innerHTML = `
+      <div class="card busline"><div><div class="k">You are on</div><b>${BUS.reg}</b> · Route ${BUS.route}</div><div style="text-align:right"><div class="k">Your zone</div><b>${MY_ZONE}</b></div></div>
+      <div><div class="k" style="margin-bottom:6px">What is happening? (optional)</div>
+        <div class="chips">${TYPES.map(t=>`<button class="chip" data-t="${t.id}" aria-pressed="${S.type===t.id}">${t.label}</button>`).join("")}</div></div>
+      <button class="hold" id="hold" aria-label="Press and hold for one second to alert the conductor">
+        <span class="fill" id="holdFill"></span>
+        <span>Press &amp; hold to alert conductor<small>Silent. Nobody around you is notified.</small></span>
+      </button>
+      <p class="hint">Holding for 1 second prevents accidental alerts.</p>
+      <button class="linkbtn" id="backLock">Cancel</button>`;
+    el.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{S.type=Number(b.dataset.t); renderPassenger();});
+    $("backLock").onclick=()=>{S.pStep="lock"; renderPassenger();};
+    bindHold();
+    return;
+  }
+  if(m==="sms"){
+    const thread = S.sms.map(x=>`<div class="msg ${x.out?"out":""}">${esc(x.text)}</div>`).join("");
+    el.innerHTML = `
+      ${stickerHTML()}
+      <div class="fp" aria-label="Basic phone">
+        <div class="row"><span>Messages</span><span>No data</span></div>
+        ${thread || `<div class="msg">Type the zone code from the sticker, then an optional number: 1 staring, 2 touching, 3 following.</div>`}
+        <label for="smsIn" class="k" style="color:#3c4a22">To: Ishaara short code (demo)</label>
+        <input id="smsIn" value="${MY_ZONE} 2" autocomplete="off" maxlength="12">
+        <button class="small" id="smsSend" style="background:#2d3448;color:#fff;border:0">Send SMS</button>
+      </div>
+      <p class="hint">Works on any ₹1,000 phone with no internet. The reply is short so it is safe to leave on screen.</p>`;
+    $("smsSend").onclick=()=>{
+      const v=$("smsIn").value.trim().toUpperCase();
+      const mt=v.match(/^([FR][1-4][LCR])\s*([0-3])?$/);
+      S.sms.push({out:true,text:v||"(empty)"});
+      const cur=active();
+      if(v==="OK" && cur && cur.channel==="sms"){ S.sms.push({out:false,text:"Marked safe. Thank you."}); patch(cur,{status:"safe",safeAt:now()}); return; }
+      if(!mt){ S.sms.push({out:false,text:"Code not recognised. Send the 3-character code on the sticker, e.g. "+MY_ZONE+"."}); renderPassenger(); return; }
+      createAlert(mt[1],"sms",mt[2]?Number(mt[2]):0);
+      S.sms.push({out:false,text:"Received. Help is coming as a routine check. Reply OK when safe."});
+      renderPassenger();
+    };
+    return;
+  }
+  // phrase
+  el.innerHTML = `
+    <div class="card"><div class="k">No phone, or phone is dead</div>
+      <p style="margin:6px 0 0">She walks up to the conductor as if asking about her stop and says:</p></div>
+    <div class="card" style="background:var(--saffron-soft);color:var(--saffron-ink)">
+      <div style="font-family:var(--f-display);font-weight:600;font-size:20px;line-height:1.3">“Sakhi stop kab aayega?”</div>
+      <div style="font-size:14px;margin-top:4px">“When does Sakhi stop come?” There is no such stop. To anyone listening it is an ordinary question.</div></div>
+    <p style="margin:0;color:var(--ink-2);font-size:15px">The conductor answers normally, then taps her zone on the bus map and logs it. The same response script follows.</p>
+    <button class="big btn-primary" id="goCond">Show the conductor’s side</button>
+    <p class="hint">Adapted from “Ask for Angela”, a code-phrase scheme used in UK bars and venues.</p>`;
+  $("goCond").onclick=()=>setTab("c", true);
+}
+function bindHold(){
+  const b=$("hold"), f=$("holdFill"); let start=0, raf=0;
+  const DUR=1000;
+  function step(){ const p=Math.min(1,(performance.now()-start)/DUR); f.style.transform="scaleX("+p+")"; if(p>=1){ end(true); return;} raf=requestAnimationFrame(step); }
+  function begin(e){ e.preventDefault(); start=performance.now(); raf=requestAnimationFrame(step); }
+  function end(done){ cancelAnimationFrame(raf); if(done===true){ createAlert(MY_ZONE,"app",S.type??0); S.pStep="sent"; renderPassenger(); } else { f.style.transform="scaleX(0)"; } }
+  b.addEventListener("pointerdown",begin);
+  ["pointerup","pointerleave","pointercancel"].forEach(ev=>b.addEventListener(ev,()=>end(false)));
+  b.addEventListener("keydown",e=>{ if((e.key===" "||e.key==="Enter") && !e.repeat){ begin(e);} });
+  b.addEventListener("keyup",e=>{ if(e.key===" "||e.key==="Enter") end(false); });
+}
+function glanceSafe(a){
+  const safe = a.status==="safe";
+  const seen = a.ackAt!=null;
+  return `
+    <div class="card busline"><div><div class="k">Route ${BUS.route}</div><b>Next stops</b></div><div class="k">Live</div></div>
+    <div class="timetable">${STOPS.map((s,i)=>`<div class="stop ${i===1?"now":""}"><i></i><span>${s}</span><time>${fmtClock(a.createdAt+ (i*4-4)*60000)}</time></div>`).join("")}</div>
+    <div class="quiet" role="status">${safe? "✓ Marked safe. Thank you." : seen ? "● Conductor is on the way." : "● Signal sent. Stay where you are."}</div>
+    <p class="hint">This screen looks like a bus timetable, so anyone glancing at her phone sees nothing unusual.</p>
+    ${safe? `<button class="small" id="pDone">Back to start</button>` : `<button class="big btn-ok" id="pSafe">I’m safe now</button>`}`;
+}
+function bindGlance(a){
+  const s=$("pSafe"); if(s) s.onclick=()=>patch(a,{status:"safe",safeAt:now()});
+  const d=$("pDone"); if(d) d.onclick=()=>{S.pStep="lock"; renderPassenger();};
+}
+
+/* ---------- conductor screen ---------- */
+let lastCondId=null;
+function renderConductor(){
+  const el=$("cScreen"); const a=active();
+  const aid=a?a.id:null; if(aid!==lastCondId){ lastCondId=aid; requestAnimationFrame(()=>{el.scrollTop=0;}); }
+  const hotZone = a? a.zone : null;
+  const map = `
+    <div class="busmap" aria-label="Bus seat map">
+      <div class="lab"><span>Driver · Front door</span><span>${BUS.reg}</span></div>
+      ${ZONE_ROWS.map((row,ri)=>(ri===4?`<div class="door" title="Middle door"></div>`:"")+`<div class="zgrid">${row.map(z=>`<button class="z ${z[2]==="C"?"c":""} ${z===hotZone?"hot":""} ${!a&&z===S.selZone?"sel":""}" data-z="${z}" aria-label="Zone ${z}">${z}</button>`).join("")}</div>`).join("")}
+      <div class="lab"><span>Rear</span><span>Aisle = standing</span></div>
+    </div>`;
+  if(!a){
+    el.innerHTML = `
+      <div class="cond-head"><div><div class="k">Route ${BUS.route}</div><b>${BUS.from} → ${BUS.to}</b></div><span class="pill">No alerts</span></div>
+      ${map}
+      <div class="card"><b>Passenger asked for “Sakhi stop”?</b>
+        <div style="font-size:14px;color:var(--ink-2);margin:4px 0 8px">Tap her zone on the map, then log it. Selected: <b class="timer">${S.selZone}</b></div>
+        <button class="small" id="logPhrase" style="width:100%">Log silent request for ${S.selZone}</button></div>
+      <p class="hint">The phone stays silent until a passenger signals. No sound ever plays.</p>`;
+    el.querySelectorAll(".z").forEach(b=>b.onclick=()=>{S.selZone=b.dataset.z; renderConductor();});
+    $("logPhrase").onclick=()=>createAlert(S.selZone,"phrase",0);
+    return;
+  }
+  const safe=a.status==="safe";
+  const chan={app:"Seat sticker (app-free web)",sms:"SMS from basic phone",phrase:"Code phrase, logged by you"}[a.channel];
+  const typ=(TYPES.find(t=>t.id===a.type)||TYPES[3]).label;
+  el.innerHTML = `
+    <div class="cond-head"><div><div class="k">Route ${BUS.route}</div><b>${BUS.from} → ${BUS.to}</b></div><span class="pill ${safe?"":"hot"}">${safe?"Passenger safe":"Silent alert"}</span></div>
+    <div class="alertcard ${safe?"safe":""}" role="alert">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="zbig">${a.zone}</span><span class="timer" id="cTimer">${fmtDur(now()-a.createdAt)}</span></div>
+      <div style="font-weight:600">${zoneName(a.zone)}</div>
+      <div class="meta">${esc(typ)} · ${chan}</div>
+      ${a.ackAt?`<div class="meta">You responded in <b>${fmtDur(a.ackAt-a.createdAt)}</b></div>`:""}
+      ${safe?`<div class="meta"><b>She marked herself safe.</b> Close the alert when done.</div>`:""}
+    </div>
+    ${map}
+    <div class="k">Respond as routine duty</div>
+    <ul class="script">${SCRIPT.map((s,i)=>`<li class="${s.esc?"esc":""}"><button data-i="${i}" aria-pressed="${a.steps[i]}"><span class="lv">${s.lv}</span><span><b>${s.t}</b><small>${s.d}</small></span></button></li>`).join("")}</ul>
+    <button class="big ${safe?"btn-ok":"btn-ghost"}" id="closeA">Close alert</button>
+    <p class="hint">Never confront loudly or name her. Each step should look like normal work.</p>`;
+  el.querySelectorAll(".script button").forEach(b=>b.onclick=()=>{
+    const i=Number(b.dataset.i); const steps=a.steps.slice(); steps[i]=!steps[i];
+    patch(a,{steps, ackAt: a.ackAt ?? now(), status: a.status==="new"?"ack":a.status});
+  });
+  $("closeA").onclick=()=>patch(a,{status:"closed",closedAt:now(), ackAt:a.ackAt??now(), outcome: a.status==="safe"?"safe":"closed"});
+}
+
+/* ---------- depot console ---------- */
+// Sample week of alerts, clearly marked as sample data for the demo.
+const SAMPLE = (function(){
+  const stretches = [
+    {r:"A-202", s:"Andheri Stn → Chakala", w:9},
+    {r:"A-202", s:"Chakala → Marol Naka", w:6},
+    {r:"332",   s:"Kurla Depot → Saki Naka", w:7},
+    {r:"A-61",  s:"Sion → Dharavi Depot", w:4},
+    {r:"C-79",  s:"Borivali Stn → Kandarpada", w:3},
+    {r:"28",    s:"Dadar TT → Worli Naka", w:2}
+  ];
+  const hourW=[0,0,0,0,0,0,1,3,6,5,2,1,1,1,2,2,3,5,9,10,7,4,2,1];
+  let seed=7; const rnd=()=>{seed=(seed*16807)%2147483647; return (seed-1)/2147483646;};
+  const pick=(arr,wk)=>{const tot=arr.reduce((t,x)=>t+wk(x),0); let r=rnd()*tot; for(const x of arr){ r-=wk(x); if(r<=0) return x;} return arr[0];};
+  const out=[]; const base=new Date(); base.setHours(0,0,0,0);
+  const hrs=[...Array(24).keys()];
+  for(let i=0;i<46;i++){
+    const st=pick(stretches,x=>x.w); const h=pick(hrs,x=>hourW[x]);
+    const day=Math.floor(rnd()*7)+1;
+    const t=base.getTime()-day*86400000+h*3600000+Math.floor(rnd()*60)*60000;
+    const resp=Math.round(70+rnd()*230);
+    const ch = rnd()<.58?"app": rnd()<.7?"sms":"phrase";
+    const safe=rnd()<.82;
+    const zr=ZONE_ROWS[Math.floor(rnd()*8)]; const zone=zr[rnd()<.55?1:Math.floor(rnd()*3)];
+    out.push({id:"s"+i, sample:true, route:st.r, stretch:st.s, zone, channel:ch, type:pick([1,2,3,0],x=>[3,4,2,1][[1,2,3,0].indexOf(x)]), createdAt:t, ackAt:t+resp*1000, status:"closed", outcome:safe?"safe":"closed"});
+  }
+  return out.sort((a,b)=>b.createdAt-a.createdAt);
+})();
+function median(xs){ if(!xs.length) return null; const s=xs.slice().sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2? s[m] : (s[m-1]+s[m])/2; }
+function renderDepot(){
+  const live = S.alerts.map(a=>Object.assign({stretch:"Andheri Stn → Chakala"},a)).sort((a,b)=>b.createdAt-a.createdAt);
+  const all = live.concat(SAMPLE);
+  const resp = all.filter(a=>a.ackAt).map(a=>a.ackAt-a.createdAt);
+  const done = all.filter(a=>a.status==="closed"||a.status==="safe");
+  const safeN = all.filter(a=>a.outcome==="safe"||a.status==="safe").length;
+  const smsShare = Math.round(100*all.filter(a=>a.channel!=="app").length/all.length);
+  // hotspots
+  const agg={}; all.forEach(a=>{const k=a.route+"|"+a.stretch; agg[k]=(agg[k]||0)+1;});
+  const hs=Object.entries(agg).sort((a,b)=>b[1]-a[1]).slice(0,5); const mx=hs[0]?hs[0][1]:1;
+  const hrs=Array(24).fill(0); all.forEach(a=>hrs[new Date(a.createdAt).getHours()]++); const hm=Math.max(...hrs,1);
+  const peak=hrs.indexOf(hm);
+  const typeCounts=[2,1,3,0].map(id=>({id,n:all.filter(a=>a.type===id).length}));
+  const rows = all.slice(0,8).map(a=>{
+    const st = a.status==="closed" ? (a.outcome==="safe"?`<span class="st safe">Safe</span>`:`<span class="st closed">Closed</span>`) : a.status==="safe"?`<span class="st safe">Safe</span>`:`<span class="st open">Open</span>`;
+    const d=new Date(a.createdAt);
+    const when = a.sample ? d.toLocaleDateString("en-IN",{weekday:"short"})+" "+fmtClock(a.createdAt) : "Now · "+fmtClock(a.createdAt);
+    return `<tr class="${a.sample?"":"new"}"><td>${when}</td><td class="mono">${esc(a.route)}</td><td>${esc(a.stretch)}</td><td class="mono">${a.zone}</td><td>${{app:"Sticker",sms:"SMS",phrase:"Phrase"}[a.channel]}</td><td>${a.ackAt?fmtDur(a.ackAt-a.createdAt):"—"}</td><td>${st}</td></tr>`;
+  }).join("");
+  $("dScreen").innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><div class="v">${all.length}</div><div class="l">silent alerts in the last 7 days</div></div>
+      <div class="kpi"><div class="v">${fmtDur(median(resp))}</div><div class="l">median time to conductor response</div></div>
+      <div class="kpi"><div class="v">${Math.round(100*safeN/all.length)}%</div><div class="l">ended with her marking herself safe</div></div>
+      <div class="kpi"><div class="v">${smsShare}%</div><div class="l">came by SMS or code phrase, not smartphone</div></div>
+    </div>
+    <div class="two">
+      <div>
+        <div class="sec-h"><h3>Hotspot stretches</h3><span>alerts, 7 days</span></div>
+        <div class="hot-list">${hs.map(([k,n])=>{const [r,s]=k.split("|"); return `<div class="hrow"><div class="nm"><b>${esc(s)}</b><small>Route ${esc(r)}</small></div><div class="bar"><i style="width:${Math.round(100*n/mx)}%"></i></div><div class="c">${n}</div></div>`;}).join("")}</div>
+      </div>
+      <div>
+        <div class="sec-h"><h3>When alerts happen</h3><span>peak ${String(peak).padStart(2,"0")}:00–${String(peak+1).padStart(2,"0")}:00</span></div>
+        <div class="hours" aria-label="Alerts by hour of day">${hrs.map((v,i)=>`<i class="${i===peak?"pk":""}" style="height:${Math.max(2,Math.round(100*v/hm))}%" title="${String(i).padStart(2,"0")}:00 · ${v} alerts"></i>`).join("")}</div>
+        <div class="hlab"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span></div>
+        <p class="note" style="margin:8px 0 0">Use: place Nirbhaya squads and women conductors on peak stretches and hours.</p>
+      </div>
+    </div>
+    <div>
+      <div class="sec-h"><h3>Recent alerts</h3><span>highlighted rows come from this demo</span></div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>When</th><th>Route</th><th>Stretch</th><th>Zone</th><th>Via</th><th>Response</th><th>Outcome</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+    </div>
+    <div class="privacy"><span aria-hidden="true">🔒</span><span>No names or phone numbers are stored. Each record keeps only route, stretch, zone, time, channel and outcome. Sample week shown for the demo; ${typeCounts[0].n} of ${all.length} alerts reported touching or pressing.</span></div>`;
+}
+
+/* ---------- tabs, clocks, render ---------- */
+function setTab(t, focus){
+  S.tab=t;
+  ["p","c","d"].forEach(k=>{ $("col-"+k).classList.toggle("show",k===t); $("tab-"+k).setAttribute("aria-selected",String(k===t)); });
+  if(t==="c") $("tabBadge").hidden=true;
+  if(focus && window.matchMedia("(max-width:1100px)").matches) window.scrollTo({top:$("col-"+t).offsetTop-80,behavior:"smooth"});
+}
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.col));
+document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{S.mode=b.dataset.mode; if(S.mode==="app" && !mine()) S.pStep="lock"; renderPassenger();});
+
+function renderAll(){ renderPassenger(); renderConductor(); renderDepot(); }
+function clocks(){ const c=fmtClock(now()); $("clock1").textContent=c; $("clock2").textContent=c; const a=active(); const t=$("cTimer"); if(a&&t) t.textContent=fmtDur(now()-a.createdAt); }
+setInterval(clocks,1000); clocks();
+renderAll();
+
+/* ---------- live two-phone mode (room capability) ---------- */
+function setLive(){
+  const el=$("live"), tx=$("liveText");
+  if(S.room && S.connected){ el.classList.add("on"); tx.textContent = S.peersN>1 ? "Live: "+S.peersN+" screens linked" : "Live: open this link on a second phone"; }
+  else { el.classList.remove("on"); tx.textContent="Single-screen demo"; }
+}
+(async function(){
+  if(!window.claude || !window.claude.use) return;
+  let room=null; try{ room = await window.claude.use("room"); }catch(e){ room=null; }
+  if(!room) return;
+  S.room=room;
+  room.onConnection(c=>{ S.connected=c; setLive(); if(c){ S.alerts.forEach(a=>room.emit("alert",a).catch(()=>{})); } }, ()=>{ S.connected=false; setLive(); });
+  room.onPeers(ch=>{ S.peersN=ch.peers.length; setLive(); if(ch.joined.some(p=>!p.sameTab)){ const a=active(); if(a) room.emit("alert",a).catch(()=>{}); } });
+  room.on("alert", msg=>{
+    if(msg.sameTab) return;
+    const a=msg.data; if(!a || typeof a!=="object" || typeof a.id!=="string" || typeof a.zone!=="string" || !/^[FR][1-4][LCR]$/.test(a.zone)) return;
+    const clean={id:a.id.slice(0,20), bus:BUS.reg, route:BUS.route, zone:a.zone, channel:["app","sms","phrase"].includes(a.channel)?a.channel:"app",
+      type:[0,1,2,3].includes(a.type)?a.type:0, createdAt:Number(a.createdAt)||now(), status:["new","ack","safe","closed"].includes(a.status)?a.status:"new",
+      steps:Array.isArray(a.steps)?a.steps.slice(0,4).map(Boolean):[false,false,false,false], ackAt:a.ackAt?Number(a.ackAt):null, safeAt:a.safeAt?Number(a.safeAt):null,
+      closedAt:a.closedAt?Number(a.closedAt):null, outcome:a.outcome==="safe"?"safe":(a.outcome?"closed":undefined), updatedAt:Number(a.updatedAt)||now()};
+    if(clean.zone===MY_ZONE && clean.channel==="app" && S.mode==="app" && clean.status!=="closed") S.pStep="sent";
+    upsert(clean,true);
+  });
+})();
+})();
+</script>
+
+</body></html>
