@@ -95,24 +95,20 @@ export default function GlanceTimetable({ alert, onMarkSafe, onReset }) {
         {isSafe ? (
           <>
             <ShieldCheck size={20} color="var(--ok)" />
-            <span>Marked safe. Conductor notified.</span>
+            <span>Marked safe. The conductor can see this.</span>
           </>
         ) : isSeen ? (
           <>
             <Clock size={18} color="var(--navy)" />
-            <span>Conductor acknowledged. Help is approaching routine check.</span>
+            <span>Conductor acknowledged. He is on his way.</span>
           </>
         ) : (
           <>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--alert)', animation: 'pulse-danger 1.2s infinite' }}></span>
-            <span>Silent signal transmitted. Keep phone idle.</span>
+            <span>Sent. The conductor has been alerted.</span>
           </>
         )}
       </div>
-
-      <p style={{ fontSize: 12, color: 'var(--ink-3)', textAlign: 'center', margin: '2px 0' }}>
-        This disguised screen looks like an ordinary transit timetable to anyone nearby.
-      </p>
 
       {/* Action buttons */}
       {isSafe ? (
@@ -122,7 +118,7 @@ export default function GlanceTimetable({ alert, onMarkSafe, onReset }) {
           className="btn-big ghost"
           style={{ marginTop: 4 }}
         >
-          Return to home screen
+          Done
         </button>
       ) : (
         <button

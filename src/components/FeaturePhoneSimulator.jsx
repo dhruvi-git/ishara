@@ -7,7 +7,7 @@ export default function FeaturePhoneSimulator({ onSendSMS, activeZone = DEFAULT_
   const [messages, setMessages] = useState([
     {
       out: false,
-      text: "Ishaara Helpline: Type your 3-character seat code from sticker (e.g. R4C), then optional reason: 1 staring, 2 touching, 3 following."
+      text: "Ishaara: send the seat code from the sticker, e.g. R4C. Optionally add 1 staring, 2 touching, 3 following."
     }
   ]);
   const [loading, setLoading] = useState(false);
@@ -43,7 +43,7 @@ export default function FeaturePhoneSimulator({ onSendSMS, activeZone = DEFAULT_
     } catch (err) {
       setMessages(prev => [
         ...prev,
-        { out: false, text: "Network error sending SMS. Conductor notified via local bridge." }
+        { out: false, text: "Not sent. Check the demo server is running." }
       ]);
     } finally {
       setLoading(false);
@@ -77,7 +77,7 @@ export default function FeaturePhoneSimulator({ onSendSMS, activeZone = DEFAULT_
           ))}
           {loading && (
             <div className="sms-bubble">
-              Sending via cellular SMS tower...
+              Sending...
             </div>
           )}
         </div>
@@ -112,7 +112,7 @@ export default function FeaturePhoneSimulator({ onSendSMS, activeZone = DEFAULT_
             </button>
           </div>
           <div style={{ fontSize: 10, color: '#3c4a22' }}>
-            Tip: Type "OK" after help arrives to mark safe.
+            Reply OK once you are safe.
           </div>
         </form>
       </div>
@@ -129,7 +129,7 @@ export default function FeaturePhoneSimulator({ onSendSMS, activeZone = DEFAULT_
       }}>
         <Smartphone size={16} color="var(--navy)" style={{ flexShrink: 0, marginTop: 2 }} />
         <span>
-          <strong>Inclusivity for all passengers:</strong> Works on any basic ₹1,000 feature phone over standard GSM SMS without requiring 4G/5G data or smartphones.
+          Works on any basic phone over normal SMS. No internet needed.
         </span>
       </div>
     </div>

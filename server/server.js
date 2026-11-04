@@ -24,16 +24,21 @@ app.use(cors());
 app.use(express.json());
 
 // Helper to find local LAN IP
+// Prefers the Wi-Fi adapter over virtual ones (WSL, Hyper-V, VirtualBox)
 function getLocalIp() {
   const interfaces = os.networkInterfaces();
+  const candidates = [];
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name]) {
       if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
+        candidates.push({ name, address: iface.address });
       }
     }
   }
-  return 'localhost';
+  const isVirtual = (n) => /vethernet|virtual|vmware|wsl|hyper-v|docker|loopback/i.test(n);
+  const wifi = candidates.find(c => /wi-?fi|wlan|wireless/i.test(c.name));
+  const real = candidates.find(c => !isVirtual(c.name));
+  return (wifi || real || candidates[0] || { address: 'localhost' }).address;
 }
 
 const localIp = getLocalIp();
@@ -95,7 +100,7 @@ app.post('/api/sms', (req, res) => {
   const clean = text.trim().toUpperCase();
   const match = clean.match(/^([FR][1-4][LCR])\s*([0-3])?$/);
 
-  const activeAlert = activeAlerts.find(a => a.status !== 'closed' && a.channel === 'sms');
+  const activeAlert = [...activeAlerts].reverse().find(a => a.channel === 'sms' && a.status !== 'safe');
 
   if (clean === 'OK' && activeAlert) {
     activeAlert.status = 'safe';
@@ -104,14 +109,14 @@ app.post('/api/sms', (req, res) => {
     io.emit('alert:updated', activeAlert);
     return res.json({
       success: true,
-      reply: 'Marked safe. Thank you for notifying us.'
+      reply: 'Marked safe. Thank you.'
     });
   }
 
   if (!match) {
     return res.json({
       success: false,
-      reply: 'Invalid code. Send 3-character seat code from sticker (e.g. R4C) + optional type 1/2/3.'
+      reply: 'Code not recognised. Send the seat code from the sticker, e.g. R4C.'
     });
   }
 
@@ -139,80 +144,55 @@ app.post('/api/sms', (req, res) => {
 
   res.json({
     success: true,
-    reply: `Received. Conductor alerted silently to zone ${zone}. Help is arriving as a routine check. Reply OK when safe.`
+    reply: `Got it. The conductor has been alerted to seat ${zone}. Reply OK when you are safe.`
   });
 });
 
 // Socket.io Real-time Bus Relay
+// Event names mirror the client's realtime.send() calls. The sender already
+// applied the event locally, so we relay to everyone else.
+const broadcastPresence = () => io.emit('presence', { devices: io.engine.clientsCount });
+
 io.on('connection', (socket) => {
-  // Sync state on connection
+  // Sync state so a phone joining mid-demo sees the live alert
   socket.emit('state:init', {
     bus: BUS,
     activeAlerts,
-    history: incidentHistory,
-    network: {
-      localIp,
-      port: PORT,
-      fullUrl: BASE_URL
-    }
+    history: incidentHistory
   });
+  broadcastPresence();
+  socket.on('disconnect', broadcastPresence);
 
   // Passenger or conductor triggers alert
-  socket.on('alert:create', (alertData) => {
-    const alert = {
-      id: alertData.id || 'alt_' + Math.random().toString(36).slice(2, 9),
-      bus: BUS.reg,
-      route: BUS.route,
-      zone: alertData.zone || 'R4C',
-      channel: alertData.channel || 'app',
-      type: alertData.type || 0,
-      createdAt: Date.now(),
-      status: 'new',
-      steps: [false, false, false, false],
-      ackAt: null,
-      safeAt: null,
-      closedAt: null,
-      updatedAt: Date.now()
-    };
-
+  socket.on('alert:new', (alert) => {
+    if (!alert || !alert.id || activeAlerts.some(a => a.id === alert.id)) return;
     activeAlerts.push(alert);
-    io.emit('alert:new', alert);
+    socket.broadcast.emit('alert:new', alert);
   });
 
-  // Conductor ticks de-escalation step, marks ack, or passenger marks safe
-  socket.on('alert:update', (updatedAlert) => {
-    const index = activeAlerts.findIndex(a => a.id === updatedAlert.id);
-    if (index >= 0) {
-      activeAlerts[index] = {
-        ...activeAlerts[index],
-        ...updatedAlert,
-        updatedAt: Date.now()
-      };
-      io.emit('alert:updated', activeAlerts[index]);
-    }
+  // Conductor ticks de-escalation step, or passenger marks safe
+  socket.on('alert:updated', (patch) => {
+    const index = activeAlerts.findIndex(a => a.id === patch?.id);
+    if (index < 0) return;
+    activeAlerts[index] = { ...activeAlerts[index], ...patch, updatedAt: Date.now() };
+    socket.broadcast.emit('alert:updated', activeAlerts[index]);
   });
 
   // Conductor finishes and closes alert
-  socket.on('alert:close', (closeData) => {
-    const index = activeAlerts.findIndex(a => a.id === closeData.id);
-    if (index >= 0) {
-      const finished = {
-        ...activeAlerts[index],
-        status: 'closed',
-        closedAt: Date.now(),
-        outcome: activeAlerts[index].status === 'safe' ? 'safe' : 'closed',
-        updatedAt: Date.now()
-      };
-      activeAlerts.splice(index, 1);
-      incidentHistory.unshift(finished);
-      io.emit('alert:closed', finished);
-    }
+  socket.on('alert:closed', (closed) => {
+    const index = activeAlerts.findIndex(a => a.id === closed?.id);
+    if (index < 0) return;
+    const finished = { ...activeAlerts[index], ...closed };
+    activeAlerts.splice(index, 1);
+    incidentHistory.unshift(finished);
+    socket.broadcast.emit('alert:closed', finished);
   });
 
   // Demo reset
-  socket.on('demo:reset', () => {
+  socket.on('demo:reset_done', () => {
     activeAlerts = [];
-    io.emit('demo:reset_done');
+    incidentHistory = [];
+    socket.broadcast.emit('demo:reset_done');
   });
 });
 
@@ -234,6 +214,18 @@ if (!isProd && !fs.existsSync(distPath)) {
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }
+
+// A second `npm start` would otherwise crash with a bare EADDRINUSE stack trace
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`
+  Port ${PORT} is already in use: Ishaara is probably already running.`);
+    console.error(`  Open http://localhost:${PORT}, or close the other terminal and run npm start again.
+`);
+    process.exit(1);
+  }
+  throw err;
+});
 
 // Start server
 server.listen(PORT, '0.0.0.0', async () => {

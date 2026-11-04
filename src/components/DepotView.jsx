@@ -109,9 +109,9 @@ export default function DepotView({
       {/* Console Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <h3 style={{ fontSize: 18, color: 'var(--ink)' }}>Transit Authority Safety Console</h3>
+          <h3 style={{ fontSize: 18, color: 'var(--ink)' }}>Depot dashboard</h3>
           <p style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>
-            Real-time silent incident monitoring &amp; pattern intelligence (Mumbai BEST Network)
+            Today's live alerts plus a week of sample data
           </p>
         </div>
         <button
@@ -121,7 +121,7 @@ export default function DepotView({
           style={{ fontSize: 12.5 }}
         >
           <Download size={14} />
-          Export Incident CSV
+          Export CSV
         </button>
       </div>
 
@@ -129,19 +129,19 @@ export default function DepotView({
       <div className="kpi-grid">
         <div className="kpi-card">
           <div className="val">{kpis.total}</div>
-          <div className="lbl">silent alerts logged across routes</div>
+          <div className="lbl">alerts in the last 7 days</div>
         </div>
         <div className="kpi-card">
           <div className="val">{formatDuration(kpis.medianResp)}</div>
-          <div className="lbl">median conductor de-escalation response</div>
+          <div className="lbl">median time to conductor response</div>
         </div>
         <div className="kpi-card">
           <div className="val">{kpis.safePercent}%</div>
-          <div className="lbl">resolved with passenger marking herself safe</div>
+          <div className="lbl">ended with her marking herself safe</div>
         </div>
         <div className="kpi-card">
           <div className="val">{kpis.nonSmartShare}%</div>
-          <div className="lbl">via SMS / "Sakhi stop" verbal code phrase</div>
+          <div className="lbl">came by SMS or “Sakhi stop”</div>
         </div>
       </div>
 
@@ -150,8 +150,8 @@ export default function DepotView({
         {/* Hotspots */}
         <div style={{ background: 'var(--surface-2)', padding: 16, borderRadius: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-            <h4 style={{ fontSize: 14.5, color: 'var(--ink)' }}>Hotspot Stretches</h4>
-            <span style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>Incident Volume</span>
+            <h4 style={{ fontSize: 14.5, color: 'var(--ink)' }}>Hotspot stretches</h4>
+            <span style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>Alerts</span>
           </div>
           <div>
             {hotspots.map((item) => (
@@ -174,7 +174,7 @@ export default function DepotView({
         {/* 24-Hour Timeline Distribution */}
         <div style={{ background: 'var(--surface-2)', padding: 16, borderRadius: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-            <h4 style={{ fontSize: 14.5, color: 'var(--ink)' }}>Temporal Pattern (24 Hours)</h4>
+            <h4 style={{ fontSize: 14.5, color: 'var(--ink)' }}>Time of day</h4>
             <span style={{ fontSize: 11.5, color: 'var(--saffron)', fontWeight: 700 }}>
               Peak: {String(peakHour).padStart(2, '0')}:00 – {String(peakHour + 1).padStart(2, '0')}:00
             </span>
@@ -186,7 +186,7 @@ export default function DepotView({
                 key={i}
                 className={`hour-col ${i === peakHour ? 'peak' : ''}`}
                 style={{ height: `${h.pct}%` }}
-                title={`${String(i).padStart(2, '0')}:00 — ${h.val} alerts`}
+                title={`${String(i).padStart(2, '0')}:00: ${h.val} alerts`}
               />
             ))}
           </div>
@@ -206,7 +206,7 @@ export default function DepotView({
           </div>
 
           <p style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 10, lineHeight: 1.35 }}>
-            <strong>Operational Action:</strong> Deploy Nirbhaya marshals and female conductors along high-alert corridors during evening peak rush hours.
+            Use: send Nirbhaya squads to <b>{hotspots[0]?.stretch}</b> around {String(peakHour).padStart(2, '0')}:00.
           </p>
         </div>
       </div>
@@ -214,8 +214,8 @@ export default function DepotView({
       {/* Live Stream Table */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-          <h4 style={{ fontSize: 14.5, color: 'var(--ink)' }}>Recent Transit Incidents</h4>
-          <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>Highlighted entries represent your live demo</span>
+          <h4 style={{ fontSize: 14.5, color: 'var(--ink)' }}>Recent alerts</h4>
+          <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>Highlighted rows are live</span>
         </div>
 
         <div className="table-responsive">
@@ -245,14 +245,14 @@ export default function DepotView({
                     <td style={{ fontWeight: a.isLive ? 700 : 500, color: a.isLive ? 'var(--alert)' : 'inherit' }}>
                       {timeLabel}
                     </td>
-                    <td style={{ fontFamily: 'var(--f-mono)' }}>{a.route || "A-202"}</td>
+                    <td style={{ fontFamily: 'var(--f-mono)', whiteSpace: 'nowrap' }}>{a.route || "A-202"}</td>
                     <td>{a.stretch || "Andheri Stn → Chakala"}</td>
                     <td style={{ fontFamily: 'var(--f-mono)', fontWeight: 700 }}>{a.zone}</td>
                     <td>
                       {a.channel === 'app' ? 'Sticker' : a.channel === 'sms' ? 'SMS' : 'Phrase'}
                     </td>
                     <td>
-                      {a.ackAt ? formatDuration(a.ackAt - a.createdAt) : (isOpen ? 'In Progress' : '—')}
+                      {a.ackAt ? formatDuration(a.ackAt - a.createdAt) : (isOpen ? 'Waiting' : '—')}
                     </td>
                     <td>
                       <span className={`badge-status ${isSafe ? 'safe' : isOpen ? 'open' : 'closed'}`}>
@@ -281,7 +281,7 @@ export default function DepotView({
       }}>
         <Lock size={18} color="var(--ok)" style={{ flexShrink: 0, marginTop: 2 }} />
         <span>
-          <strong>Privacy by Architecture (Zero-PII):</strong> No passenger names, mobile numbers, or photos are ever collected or stored in the database. Every record stores only bus route, seat zone, timestamp, and response resolution — keeping women completely anonymous while delivering precise municipal safety metrics.
+          <strong>No personal data.</strong> No names, phone numbers or photos are stored. Each record is only the route, seat zone, time, response time and outcome.
         </span>
       </div>
     </div>

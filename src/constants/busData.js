@@ -18,25 +18,25 @@ export const SCRIPT = [
   {
     lv: "L1",
     t: "Ticket check in her zone",
-    d: "Walk to the zone and check tickets of nearby passengers. Presence alone often halts harassment without drawing attention.",
+    d: "Walk to her zone and check tickets around her. Being there is often enough.",
     action: "Conducting routine ticket check nearby"
   },
   {
     lv: "L2",
     t: "Offer her a seat in front",
-    d: "“Madam, a seat is vacant upfront.” Moves her away safely without naming anyone.",
+    d: "“Madam, there's a seat free in front.” Moves her without naming anyone.",
     action: "Discreetly moved passenger to front ladies row"
   },
   {
     lv: "L3",
     t: "Check his ticket and destination",
-    d: "Ask the man nearby for his pass and destination. Signals clearly that he is being watched.",
+    d: "Ask the man near her for his pass and stop. He knows he's been noticed.",
     action: "Directly verified suspect's ticket & warned"
   },
   {
     lv: "L4",
     t: "Escalate (only if she agrees)",
-    d: "Driver halts at next police chowki or Nirbhaya squad point; live GPS streamed to control room.",
+    d: "Driver stops at the next police chowki and the depot is informed.",
     esc: true,
     action: "Alerted control room & Nirbhaya squad"
   }

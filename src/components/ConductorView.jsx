@@ -4,7 +4,8 @@ import BusLayoutMap from './BusLayoutMap';
 import { AlertTriangle, CheckCircle, ShieldAlert, Clock, Check, BellOff } from 'lucide-react';
 
 export default function ConductorView({
-  activeAlert = null,
+  activeAlert: latestAlert = null,
+  alerts = [],
   onUpdateAlert,
   onCloseAlert,
   onCreateAlert,
@@ -12,6 +13,16 @@ export default function ConductorView({
 }) {
   const [selectedZone, setSelectedZone] = useState("R4C");
   const [elapsed, setElapsed] = useState("0s");
+  const [focusId, setFocusId] = useState(null);
+  const [closedNote, setClosedNote] = useState(null);
+
+  // Newest alert by default; the conductor can switch to another open one
+  const activeAlert = alerts.find(a => a.id === focusId) || latestAlert;
+
+  // A brand-new alert takes focus so the buzz always matches the screen
+  useEffect(() => {
+    if (latestAlert) setFocusId(latestAlert.id);
+  }, [latestAlert?.id]);
 
   // Update timer every second when an alert is active
   useEffect(() => {
@@ -21,14 +32,22 @@ export default function ConductorView({
     }
 
     const updateTimer = () => {
-      const ms = Date.now() - activeAlert.createdAt;
+      const ms = (activeAlert.safeAt || Date.now()) - activeAlert.createdAt;
       setElapsed(formatDuration(ms));
     };
 
     updateTimer();
+    // Clock stops once she marks herself safe
+    if (activeAlert.safeAt) return;
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [activeAlert]);
+  }, [activeAlert?.id, activeAlert?.createdAt, activeAlert?.safeAt]);
+
+  useEffect(() => {
+    if (!closedNote) return;
+    const t = setTimeout(() => setClosedNote(null), 5000);
+    return () => clearTimeout(t);
+  }, [closedNote]);
 
   const isSafe = activeAlert?.status === 'safe';
   const hotZone = activeAlert ? activeAlert.zone : null;
@@ -59,6 +78,8 @@ export default function ConductorView({
 
   const handleClose = () => {
     if (activeAlert && onCloseAlert) {
+      const end = activeAlert.safeAt || Date.now();
+      setClosedNote(`Zone ${activeAlert.zone} logged anonymously · resolved in ${formatDuration(end - activeAlert.createdAt)}`);
       onCloseAlert(activeAlert);
     }
   };
@@ -94,9 +115,16 @@ export default function ConductorView({
           ) : (
             <BellOff size={14} />
           )}
-          {activeAlert ? (isSafe ? 'Passenger Safe' : 'Silent Alert!') : 'Silent (On Duty)'}
+          {activeAlert ? (isSafe ? 'Passenger Safe' : 'Silent Alert!') : 'On duty'}
         </div>
       </div>
+
+      {closedNote && (
+        <div className="closed-note" role="status">
+          <CheckCircle size={16} />
+          <span>{closedNote}</span>
+        </div>
+      )}
 
       {/* When NO alert is active */}
       {!activeAlert ? (
@@ -120,7 +148,7 @@ export default function ConductorView({
               Passenger asked for “Sakhi stop”?
             </b>
             <div style={{ fontSize: 12.5, color: 'var(--ink-2)', margin: '4px 0 10px' }}>
-              Select her seat zone on the map above and log it silently. Selected: <b style={{ fontFamily: 'var(--f-mono)' }}>{selectedZone}</b>
+              Tap her seat on the map, then log it. Selected: <b style={{ fontFamily: 'var(--f-mono)' }}>{selectedZone}</b>
             </div>
             <button
               type="button"
@@ -128,17 +156,44 @@ export default function ConductorView({
               className="btn-big saffron"
               style={{ fontSize: 13.5, padding: '10px' }}
             >
-              Log silent request for zone {selectedZone}
+              Log Sakhi stop at {selectedZone}
             </button>
           </div>
 
           <p style={{ fontSize: 12, color: 'var(--ink-3)', textAlign: 'center' }}>
-            Device remains silent. Vibrates discreetly when a passenger triggers a signal.
+            No sound. The phone vibrates when a passenger signals.
           </p>
         </div>
       ) : (
         /* When an ALERT IS ACTIVE */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {alerts.length > 1 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                {alerts.length} open
+              </span>
+              {alerts.map(a => (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => setFocusId(a.id)}
+                  style={{
+                    fontFamily: 'var(--f-mono)',
+                    fontWeight: 700,
+                    fontSize: 12.5,
+                    padding: '4px 10px',
+                    borderRadius: 999,
+                    border: '1px solid ' + (a.id === activeAlert.id ? 'var(--alert)' : 'var(--line)'),
+                    background: a.status === 'safe' ? 'var(--ok-soft)' : a.id === activeAlert.id ? 'var(--alert-soft)' : 'var(--surface)',
+                    color: a.status === 'safe' ? 'var(--ok)' : a.id === activeAlert.id ? 'var(--alert)' : 'var(--ink-2)'
+                  }}
+                >
+                  {a.zone} · {a.channel === 'app' ? 'NFC' : a.channel === 'sms' ? 'SMS' : 'Sakhi'}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Pulsing Active Alert Card */}
           <div className={`alert-card-hot ${isSafe ? 'safe' : ''} ${isBuzzing ? 'buzz' : ''}`}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -150,7 +205,7 @@ export default function ConductorView({
                 color: isSafe ? 'var(--ok)' : 'var(--alert)'
               }}>
                 <Clock size={13} style={{ display: 'inline', marginRight: 4 }} />
-                {elapsed}
+                {isSafe ? `Resolved in ${elapsed}` : elapsed}
               </span>
             </div>
 
@@ -168,13 +223,13 @@ export default function ConductorView({
 
             {activeAlert.ackAt && (
               <div style={{ fontSize: 12, color: 'var(--ok)', fontWeight: 600 }}>
-                Response initiated in {formatDuration(activeAlert.ackAt - activeAlert.createdAt)}
+                Conductor responded in {formatDuration(activeAlert.ackAt - activeAlert.createdAt)}
               </div>
             )}
 
             {isSafe && (
               <div style={{ fontSize: 12.5, color: 'var(--ok)', fontWeight: 700, marginTop: 2 }}>
-                ✓ Passenger indicated she is safe now. Close alert when bus clears.
+                She has marked herself safe. Close the alert when you're done.
               </div>
             )}
           </div>
@@ -195,7 +250,7 @@ export default function ConductorView({
               color: 'var(--ink-3)',
               marginBottom: 6
             }}>
-              Respond as routine duty (De-escalation protocol)
+              Respond as routine duty
             </div>
 
             <ul className="script-list">
@@ -229,11 +284,11 @@ export default function ConductorView({
             className={`btn-big ${isSafe ? 'ok' : 'ghost'}`}
             style={{ marginTop: 4 }}
           >
-            {isSafe ? 'Complete & Close Alert' : 'Close / Resolve Alert'}
+            {isSafe ? 'Close alert' : 'Close alert (resolved)'}
           </button>
 
           <p style={{ fontSize: 11.5, color: 'var(--ink-3)', textAlign: 'center' }}>
-            Do not confront loudly or call out the passenger. Each action must look like standard ticket inspection.
+            Don't confront anyone loudly or point her out. Every step should look like normal ticket checking.
           </p>
         </div>
       )}

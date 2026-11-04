@@ -13,7 +13,9 @@ export default function PassengerView({
   isStandalone = false
 }) {
   const [mode, setMode] = useState('app'); // 'app' | 'sms' | 'phrase'
-  const [step, setStep] = useState('sticker'); // 'sticker' | 'form' | 'sent'
+  // A real phone got here by scanning the sticker, so skip the simulated tap
+  const homeStep = isStandalone ? 'form' : 'sticker';
+  const [step, setStep] = useState(homeStep); // 'sticker' | 'form' | 'sent'
   const [selectedType, setSelectedType] = useState(0);
 
   // Press & hold animation state
@@ -30,13 +32,14 @@ export default function PassengerView({
     if (hasMyAlert && hasMyAlert.status !== 'closed') {
       setStep('sent');
     } else if (!hasMyAlert && step === 'sent') {
-      setStep('sticker');
+      setStep(homeStep);
     }
   }, [hasMyAlert]);
 
   // Press-and-hold handling
   const startHold = (e) => {
     e.preventDefault();
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
     setHolding(true);
     holdStartRef.current = performance.now();
 
@@ -63,6 +66,7 @@ export default function PassengerView({
 
   const completeHold = () => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
     setHolding(false);
     setHoldProgress(0);
 
@@ -96,7 +100,7 @@ export default function PassengerView({
   };
 
   const handleReset = () => {
-    setStep('sticker');
+    setStep(homeStep);
   };
 
   return (
@@ -145,7 +149,7 @@ export default function PassengerView({
                 fontWeight: 600,
                 color: 'var(--ink-2)'
               }}>
-                Sticker placed on the seat back directly in front of you:
+                The sticker on the seat back in front of her:
               </div>
 
               {/* Physical Seat Sticker Simulation */}
@@ -156,7 +160,7 @@ export default function PassengerView({
                 </div>
                 <div className="sticker-right">
                   <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13 }}>
-                    Feeling unsafe? Signal silently.
+                    Feeling unsafe? Signal the conductor.
                   </div>
                   <div>
                     Seat <span className="zone-badge">{zone}</span> · Bus {BUS.reg}
@@ -165,7 +169,7 @@ export default function PassengerView({
               </div>
 
               <p style={{ fontSize: 12.5, color: 'var(--ink-3)', textAlign: 'center', lineHeight: 1.4 }}>
-                In real use, the passenger taps her phone to the seat NFC sticker or scans its QR code. Zero apps to download.
+                She taps her phone on the sticker or scans the QR. Nothing to install.
               </p>
 
               <button
@@ -237,8 +241,6 @@ export default function PassengerView({
                 onPointerUp={cancelHold}
                 onPointerLeave={cancelHold}
                 onPointerCancel={cancelHold}
-                onTouchStart={startHold}
-                onTouchEnd={cancelHold}
                 onContextMenu={(e) => e.preventDefault()}
                 aria-label="Press and hold for 1 second to alert conductor"
               >
@@ -247,14 +249,14 @@ export default function PassengerView({
                   style={{ transform: `scaleX(${holdProgress})` }}
                 />
                 <div className="btn-content">
-                  <span>Press &amp; hold for 1s to alert conductor</span>
-                  <small>Completely silent. Nobody around you is alerted.</small>
+                  <span>Press &amp; hold to alert conductor</span>
+                  <small>Silent. Only the conductor's phone vibrates.</small>
                 </div>
               </button>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>
-                  Holding 1s prevents accidental presses
+                  Hold for 1 second
                 </span>
                 <button
                   type="button"
@@ -287,10 +289,10 @@ export default function PassengerView({
             padding: '12px 14px'
           }}>
             <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink-3)' }}>
-              If phone battery died or user has no phone
+              No phone, or battery dead
             </div>
             <p style={{ marginTop: 4, fontSize: 13, color: 'var(--ink-2)' }}>
-              Passenger casually steps up to the conductor as if asking for her stop and says:
+              She asks the conductor, as if asking about her stop:
             </p>
           </div>
 
@@ -313,12 +315,12 @@ export default function PassengerView({
               “Sakhi stop kab aayega?”
             </div>
             <div style={{ fontSize: 12.5, marginTop: 6, opacity: 0.9 }}>
-              (There is no stop named Sakhi. To any harasser or bystander, it sounds like an ordinary route question.)
+              There is no stop called Sakhi. To anyone nearby it sounds like a normal question.
             </div>
           </div>
 
           <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.4 }}>
-            The conductor answers politely without causing alarm, notes her seat zone on his device, and executes the safety ticket-check protocol.
+            The conductor answers normally, logs her seat zone on his phone, and starts the same ticket-check steps.
           </p>
 
           {onSwitchToConductor && (
@@ -327,7 +329,7 @@ export default function PassengerView({
               onClick={onSwitchToConductor}
               className="btn-big navy"
             >
-              Show Conductor's Logging Screen
+              Open conductor screen
             </button>
           )}
         </div>

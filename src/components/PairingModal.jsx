@@ -73,9 +73,9 @@ export default function PairingModal({ isOpen, onClose, networkInfo, currentZone
             <QrCode size={22} />
           </div>
           <div>
-            <h3 style={{ fontSize: 18, color: 'var(--ink)' }}>Live Multi-Device Pairing</h3>
+            <h3 style={{ fontSize: 18, color: 'var(--ink)' }}>Connect a phone</h3>
             <p style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>
-              WebRTC P2P &amp; Wi-Fi Sync · Room: <strong style={{ color: 'var(--navy)', fontFamily: 'var(--f-mono)' }}>{roomId.toUpperCase()}</strong>
+              Opens the passenger screen for seat {currentZone}
             </p>
           </div>
         </div>
@@ -111,7 +111,7 @@ export default function PairingModal({ isOpen, onClose, networkInfo, currentZone
               Scan with your phone's camera
             </b>
             <p style={{ fontSize: 12, color: 'var(--ink-2)', marginTop: 2 }}>
-              Ensure your phone is on the same Wi-Fi network as this laptop
+              Phone and laptop must be on the same Wi-Fi
             </p>
           </div>
         </div>
@@ -119,7 +119,7 @@ export default function PairingModal({ isOpen, onClose, networkInfo, currentZone
         {/* Direct Links */}
         <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--ink-3)', textTransform: 'uppercase' }}>
-            Quick Links (Open in new tabs or copy URL)
+            Other screens
           </div>
 
           <div style={{
@@ -169,7 +169,7 @@ export default function PairingModal({ isOpen, onClose, networkInfo, currentZone
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Smartphone size={16} color="var(--saffron)" />
-              <span><strong>Conductor:</strong> On-duty Device</span>
+              <span><strong>Conductor</strong></span>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               <a
@@ -196,7 +196,7 @@ export default function PairingModal({ isOpen, onClose, networkInfo, currentZone
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Laptop size={16} color="var(--ok)" />
-              <span><strong>Depot Console:</strong> Analytics</span>
+              <span><strong>Depot dashboard</strong></span>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
               <a

@@ -56,9 +56,9 @@ export default function StickerGenerator({ networkInfo, onBack, roomId = "bus447
             </button>
           )}
           <div>
-            <h2 style={{ fontSize: 18, color: 'var(--ink)' }}>Printable Bus Seat Stickers</h2>
+            <h2 style={{ fontSize: 18, color: 'var(--ink)' }}>Seat stickers</h2>
             <p style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>
-              Print these stickers on paper or adhesive sheets for your college presentation &amp; live demo.
+              One per seat zone. Each QR opens the passenger screen for that seat.
             </p>
           </div>
         </div>
@@ -79,7 +79,7 @@ export default function StickerGenerator({ networkInfo, onBack, roomId = "bus447
             style={{ fontSize: 13 }}
           >
             <Printer size={16} />
-            Print Stickers (Ctrl+P)
+            Print
           </button>
         </div>
       </div>
@@ -93,7 +93,7 @@ export default function StickerGenerator({ networkInfo, onBack, roomId = "bus447
         marginBottom: 20
       }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink-2)', textTransform: 'uppercase', marginBottom: 8 }}>
-          Toggle zones to include on sticker sheet:
+          Zones to print:
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {allZones.map((z) => {
@@ -170,13 +170,13 @@ export default function StickerGenerator({ networkInfo, onBack, roomId = "bus447
                       ISHAARA <span style={{ color: '#f28c28' }}>इशारा</span>
                     </div>
                     <div style={{ fontSize: 10.5, color: '#7b83a3', letterSpacing: '0.04em' }}>
-                      SILENT SEAT SAFETY ALERT
+                      SILENT ALERT TO CONDUCTOR
                     </div>
                   </div>
                 </div>
 
                 <div style={{ fontSize: 12, fontWeight: 600, color: '#16204a', marginTop: 2 }}>
-                  Feeling unsafe? Signal conductor silently.
+                  Feeling unsafe? Signal the conductor. Silently.
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -197,7 +197,7 @@ export default function StickerGenerator({ networkInfo, onBack, roomId = "bus447
                 </div>
 
                 <div style={{ fontSize: 10, color: '#4b5478', lineHeight: 1.3, marginTop: 2 }}>
-                  <strong>How to use:</strong> Touch phone here (NFC) or scan QR. No app needed.<br />
+                  <strong>Smartphone:</strong> tap here or scan the QR. No app needed.<br />
                   <strong>Basic phone:</strong> SMS <code>{z}</code> to <code>56161</code>.
                 </div>
               </div>

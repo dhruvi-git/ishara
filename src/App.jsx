@@ -35,9 +35,10 @@ export default function App() {
     setIsConductorBuzzing(true);
     setTimeout(() => setIsConductorBuzzing(false), 2000);
 
-    // Try browser haptic vibration
+    // Real haptics only on the conductor's device (or the laptop trio view)
+    const view = new URLSearchParams(window.location.search).get('view');
     try {
-      if (navigator.vibrate) {
+      if (navigator.vibrate && (!view || view === 'conductor')) {
         navigator.vibrate([180, 90, 180, 90, 300]);
       }
     } catch (e) {}
@@ -89,7 +90,13 @@ export default function App() {
 
     const unsubAlertClose = realtime.on('alert:closed', (closed) => {
       setActiveAlerts(prev => prev.filter(a => a.id !== closed.id));
-      setIncidentHistory(prev => [closed, ...prev]);
+      setIncidentHistory(prev => [closed, ...prev.filter(a => a.id !== closed.id)]);
+    });
+
+    // Server snapshot when this device connects (e.g. phone joining mid-demo)
+    const unsubInit = realtime.on('state:init', ({ activeAlerts: live = [], history = [] }) => {
+      setActiveAlerts(live);
+      setIncidentHistory(history);
     });
 
     const unsubReset = realtime.on('demo:reset_done', () => {
@@ -117,11 +124,16 @@ export default function App() {
       unsubAlertUpd();
       unsubAlertClose();
       unsubReset();
+      unsubInit();
     };
   }, []);
 
   // Active alert for current context
+  const isOffline = connStatus === 'socket_disconnected';
   const currentActiveAlert = activeAlerts[activeAlerts.length - 1] || null;
+  // The passenger's phone only reacts to the alert it sent from its own seat
+  const passengerAlert = [...activeAlerts].reverse()
+    .find(a => a.zone === urlParams.zone && a.channel === 'app') || null;
 
   // Actions
   const handleCreateAlert = (alertData) => {
@@ -167,14 +179,17 @@ export default function App() {
   if (urlParams.view === 'passenger') {
     return (
       <div className="mobile-standalone">
-        <div className="phone-sbar">
-          <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-          <span>Seat {urlParams.zone} · Room {urlParams.room.toUpperCase()}</span>
-        </div>
+        <header className="app-header">
+          <div className="brand"><span className="brand-mark-sm">इ</span>Ishaara</div>
+          <div className="meta">
+            <span className={`live-dot ${isOffline ? 'off' : ''}`} />
+            Seat {urlParams.zone} · {BUS.reg}
+          </div>
+        </header>
         <div className="phone-scroll">
           <PassengerView
             zone={urlParams.zone}
-            activeAlert={currentActiveAlert}
+            activeAlert={passengerAlert}
             onCreateAlert={handleCreateAlert}
             onUpdateAlert={handleUpdateAlert}
             isStandalone={true}
@@ -187,13 +202,18 @@ export default function App() {
   if (urlParams.view === 'conductor') {
     return (
       <div className="mobile-standalone">
-        <div className="phone-sbar">
-          <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-          <span>BEST Conductor · Room {urlParams.room.toUpperCase()}</span>
-        </div>
+        {isConductorBuzzing && <div className="flash-overlay" aria-hidden="true" />}
+        <header className="app-header">
+          <div className="brand"><span className="brand-mark-sm">इ</span>Conductor</div>
+          <div className="meta">
+            <span className={`live-dot ${isOffline ? 'off' : ''}`} />
+            {isOffline ? 'Offline' : `On duty · ${BUS.reg}`}
+          </div>
+        </header>
         <div className="phone-scroll">
           <ConductorView
             activeAlert={currentActiveAlert}
+            alerts={activeAlerts}
             onUpdateAlert={handleUpdateAlert}
             onCloseAlert={handleCloseAlert}
             onCreateAlert={handleCreateAlert}
@@ -206,7 +226,7 @@ export default function App() {
 
   if (urlParams.view === 'depot') {
     return (
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 20px' }}>
+      <div className="wrap">
         <DepotView
           liveAlerts={activeAlerts}
           incidentHistory={incidentHistory}
@@ -239,8 +259,8 @@ export default function App() {
               Ishaara <span>इशारा</span>
             </h1>
             <p>
-              A silent seat-to-conductor alert system for women facing harassment on public transit.
-              Runs the full synchronized loop: passenger, conductor, and depot console.
+              A silent alert from a bus seat to the conductor's phone.
+              Help arrives looking like a routine ticket check.
             </p>
           </div>
         </div>
@@ -252,13 +272,15 @@ export default function App() {
               width: 8,
               height: 8,
               borderRadius: '50%',
-              background: peerCount > 0 ? 'var(--ok)' : 'var(--saffron)',
-              boxShadow: peerCount > 0 ? '0 0 0 4px var(--ok-soft)' : '0 0 0 4px var(--saffron-soft)'
+              background: connStatus === 'socket_disconnected' ? 'var(--alert)' : peerCount > 0 ? 'var(--ok)' : 'var(--saffron)',
+              boxShadow: connStatus === 'socket_disconnected' ? '0 0 0 4px var(--alert-soft)' : peerCount > 0 ? '0 0 0 4px var(--ok-soft)' : '0 0 0 4px var(--saffron-soft)'
             }} />
             <span>
-              {peerCount > 0
-                ? `Live: ${peerCount} phone(s) linked`
-                : `Room: ${urlParams.room.toUpperCase()} (P2P Ready)`}
+              {connStatus === 'socket_disconnected'
+                ? 'Server offline: run npm start'
+                : peerCount > 0
+                  ? `Live: ${peerCount} other device${peerCount === 1 ? '' : 's'} linked`
+                  : `Bus ${BUS.reg} · waiting for phones`}
             </span>
           </div>
 
@@ -300,52 +322,52 @@ export default function App() {
         <li>
           <span className="num">1</span>
           <span>
-            <b>Passenger signals silently.</b> Tap the seat NFC sticker, send an SMS from a ₹1,000 basic phone, or use the “Sakhi stop” code phrase.
+            <b>She signals from her seat.</b> Tap or scan the seat sticker, SMS the seat code from any phone, or ask the conductor for “Sakhi stop”.
           </span>
         </li>
         <li>
           <span className="num">2</span>
           <span>
-            <b>Conductor device vibrates silently.</b> Displays her exact seat zone and a structured de-escalation script that looks like routine ticket inspection.
+            <b>Only the conductor's phone vibrates.</b> It shows her seat zone and four steps that look like normal duty: ticket check, re-seating, stop call.
           </span>
         </li>
         <li>
           <span className="num">3</span>
           <span>
-            <b>Depot detects incident patterns.</b> Logs every alert with zero personally identifiable data (Zero-PII), mapping hotspot stretches and peak hours.
+            <b>The depot sees where and when.</b> Each alert is logged by route, seat zone and time. No names or phone numbers.
           </span>
         </li>
       </ol>
 
       {/* Mobile Tab switcher (shown below 1100px) */}
-      <div className="segmented-control no-print" style={{ display: 'none', marginBottom: 16 }} id="mobile-tabs">
+      <div className="segmented-control mobile-tabs no-print">
         <button
           type="button"
           onClick={() => { setActiveTab('p'); setHasUnreadAlert(false); }}
           className={`seg-btn ${activeTab === 'p' ? 'active' : ''}`}
         >
-          Passenger Phone
+          Passenger
         </button>
         <button
           type="button"
           onClick={() => { setActiveTab('c'); setHasUnreadAlert(false); }}
           className={`seg-btn ${activeTab === 'c' ? 'active' : ''}`}
         >
-          Conductor Phone {hasUnreadAlert && '🔴'}
+          Conductor {hasUnreadAlert && <span className="unread-dot" />}
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('d')}
           className={`seg-btn ${activeTab === 'd' ? 'active' : ''}`}
         >
-          Depot Safety Console
+          Depot
         </button>
       </div>
 
       {/* Trio Simulator Stage */}
       <main className="stage-trio">
         {/* PASSENGER PHONE COLUMN */}
-        <section className="col-pane">
+        <section className={`col-pane ${activeTab === 'p' ? 'is-active' : ''}`}>
           <div className="col-header">
             <h2>Passenger’s Phone</h2>
             <span>Seat {urlParams.zone}</span>
@@ -360,7 +382,7 @@ export default function App() {
               <div className="phone-scroll">
                 <PassengerView
                   zone={urlParams.zone}
-                  activeAlert={currentActiveAlert}
+                  activeAlert={passengerAlert}
                   onCreateAlert={handleCreateAlert}
                   onUpdateAlert={handleUpdateAlert}
                   onSwitchToConductor={() => setActiveTab('c')}
@@ -371,10 +393,10 @@ export default function App() {
         </section>
 
         {/* CONDUCTOR PHONE COLUMN */}
-        <section className="col-pane">
+        <section className={`col-pane ${activeTab === 'c' ? 'is-active' : ''}`}>
           <div className="col-header">
             <h2>Conductor’s Device</h2>
-            <span>Silent · Haptic only</span>
+            <span>Vibrates only</span>
           </div>
 
           <div className={`phone-frame ${isConductorBuzzing ? 'buzz' : ''}`}>
@@ -386,6 +408,7 @@ export default function App() {
               <div className="phone-scroll">
                 <ConductorView
                   activeAlert={currentActiveAlert}
+                  alerts={activeAlerts}
                   onUpdateAlert={handleUpdateAlert}
                   onCloseAlert={handleCloseAlert}
                   onCreateAlert={handleCreateAlert}
@@ -397,10 +420,10 @@ export default function App() {
         </section>
 
         {/* DEPOT SAFETY CONSOLE COLUMN */}
-        <section className="col-pane" style={{ minWidth: 0 }}>
+        <section className={`col-pane ${activeTab === 'd' ? 'is-active' : ''}`} style={{ minWidth: 0 }}>
           <div className="col-header">
-            <h2>Depot Safety Console</h2>
-            <span>7-Day Pattern Intelligence</span>
+            <h2>Depot</h2>
+            <span>Last 7 days</span>
           </div>
 
           <DepotView

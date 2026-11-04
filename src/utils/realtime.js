@@ -24,9 +24,11 @@ class RealtimeManager {
 
     // 1. Try Socket.io first (works if local node server or Render backend exists)
     const backendUrl = import.meta.env.VITE_BACKEND_URL;
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('192.168.');
+    // Any host except the static Vercel deploy is served by our Node server
+    const hasLocalServer = !window.location.hostname.endsWith('.vercel.app');
+    const useSocket = Boolean(backendUrl || hasLocalServer);
 
-    if (backendUrl || isLocalhost) {
+    if (useSocket) {
       try {
         const url = backendUrl || window.location.origin;
         this.socket = io(url, {
@@ -37,8 +39,19 @@ class RealtimeManager {
         });
 
         this.socket.on('connect', () => {
-          this.notifyStatus('socket_connected', 1);
+          this.notifyStatus('socket_connected', 0);
         });
+
+        this.socket.on('disconnect', () => {
+          this.notifyStatus('socket_disconnected', 0);
+        });
+
+        // Other devices on the server, excluding this one
+        this.socket.on('presence', ({ devices }) => {
+          this.notifyStatus('socket_connected', Math.max(0, devices - 1));
+        });
+
+        this.socket.on('state:init', (data) => this.emitLocal('state:init', data));
 
         this.socket.on('alert:new', (data) => this.emitLocal('alert:new', data));
         this.socket.on('alert:updated', (data) => this.emitLocal('alert:updated', data));
@@ -59,8 +72,11 @@ class RealtimeManager {
       };
     }
 
-    // 3. Setup PeerJS (WebRTC) for serverless multi-device sync on Vercel
-    this.initPeerJS();
+    // 3. PeerJS (WebRTC) only for the serverless Vercel deploy; on a local
+    // server Socket.io is faster and doesn't need the public PeerJS cloud
+    if (!useSocket) {
+      this.initPeerJS();
+    }
   }
 
   generateRoomId() {
